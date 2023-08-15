@@ -25,9 +25,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var start: String = ""
     private var end: String = ""
 
+    //Dibujar ruta y marcadores de puntos
     var poly: Polyline? = null
     var markerStart: MarkerOptions? = null
     var markerEnd: MarkerOptions? = null
+
+    //Alternar tipo de vista
+    private var currentMapType: Int = GoogleMap.MAP_TYPE_NORMAL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,6 +92,23 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+        val btnChangeMapType = findViewById<Button>(R.id.btnChangeMapType)
+        btnChangeMapType.setOnClickListener {
+            changeMapType()
+        }
+
+    }
+
+    private fun changeMapType() {
+        currentMapType = when (currentMapType) {
+            GoogleMap.MAP_TYPE_NORMAL -> GoogleMap.MAP_TYPE_SATELLITE
+            GoogleMap.MAP_TYPE_SATELLITE -> GoogleMap.MAP_TYPE_HYBRID
+            GoogleMap.MAP_TYPE_HYBRID -> GoogleMap.MAP_TYPE_TERRAIN
+            GoogleMap.MAP_TYPE_TERRAIN -> GoogleMap.MAP_TYPE_NORMAL
+            else -> GoogleMap.MAP_TYPE_NORMAL
+        }
+        map.mapType = currentMapType
     }
 
     override fun onMapReady(map: GoogleMap) {
@@ -98,12 +119,15 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Configurar la cámara del mapa para que esté centrada en el punto de carga
         val cameraUpdate = CameraUpdateFactory.newLatLngZoom(puntoDeCarga, 10f) // Cambia el nivel de zoom según tus preferencias
         map.moveCamera(cameraUpdate)
+
+        // Configura el tipo de mapa inicial
+        map.mapType = currentMapType
     }
 
     private fun createRoute() {
         //Clics en el mapa
         CoroutineScope(Dispatchers.IO).launch {
-            val call = getRetrofit().create(ApiService::class.java)
+            val call = getRetrofit().create(ApiServiceMaps::class.java)
                 .getRoute("5b3ce3597851110001cf62487e318d4a23d745d58d4b17f3216581cc", start, end)
                 //.getRoute("TU_API_KEY", start, end)
             if (call.isSuccessful) {
