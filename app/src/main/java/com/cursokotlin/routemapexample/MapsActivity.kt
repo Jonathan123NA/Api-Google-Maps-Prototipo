@@ -44,7 +44,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     //Ubicacion en tiempo real
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var userLocationCircle: Circle? = null
-    
+
+    //Multiples puntos
+    private val selectedPoints: MutableList<LatLng> = mutableListOf()
+
+    //Dibujar rutas
+    private val drawnRoutes: MutableSet<Pair<LatLng, LatLng>> = mutableSetOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +61,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         btnCalculate.setOnClickListener {
             // Eliminar marcadores y ruta anterior
             map.clear() // Esto eliminará todos los marcadores y rutas dibujadas
+            selectedPoints.clear() // Limpiar los puntos
             start = ""
             end = ""
             poly?.remove() //borrar la linea de ruta
@@ -63,31 +69,20 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             Toast.makeText(this, "Selecciona punto de origen y final", Toast.LENGTH_SHORT).show()
             if (::map.isInitialized) {
                 map.setOnMapClickListener { it ->
-                    if (start.isEmpty()) {
-                        // Coordenada 1
-                        start = "${it.longitude},${it.latitude}"
-                        markerStart = MarkerOptions()
-                            .position(it)
-                            .title("Inicio")
-                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
-                        map.addMarker(markerStart!!)
+                    selectedPoints.add(it)
 
-                        println("Punto Inicio:"+it)
+                    val markerOptions = MarkerOptions()
+                        .position(it)
+                        .title("Punto ${selectedPoints.size}")
+                    map.addMarker(markerOptions)
 
-                    } else if (end.isEmpty()) {
-                        // Coordenada 2
-                        end = "${it.longitude},${it.latitude}"
-                        markerEnd = MarkerOptions()
-                            .position(it)
-                            .title("Fin")
-                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
-                        map.addMarker(markerEnd!!)
-
-                        println("Punto Final:"+it)
+                    if (selectedPoints.size >= 2) {
+                        start = "${selectedPoints[0].longitude},${selectedPoints[0].latitude}"
+                        end = "${selectedPoints[selectedPoints.size - 1].longitude},${selectedPoints[selectedPoints.size - 1].latitude}"
 
                         // Calcular el centro entre las coordenadas de inicio y fin
-                        val centerLat = (it.latitude + markerStart?.position!!.latitude) / 2
-                        val centerLng = (it.longitude + markerStart?.position!!.longitude) / 2
+                        val centerLat = (selectedPoints[0].latitude + selectedPoints[selectedPoints.size - 1].latitude) / 2
+                        val centerLng = (selectedPoints[0].longitude + selectedPoints[selectedPoints.size - 1].longitude) / 2
                         val centerLatLng = LatLng(centerLat, centerLng)
 
                         // Animación hacia el centro
@@ -101,6 +96,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                         createRoute()
                     }
                 }
+
             }
 
         }
@@ -195,19 +191,33 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun createRoute() {
-        //Clics en el mapa
-        CoroutineScope(Dispatchers.IO).launch {
-            val call = getRetrofit().create(ApiServiceMaps::class.java)
-                .getRoute("5b3ce3597851110001cf62487e318d4a23d745d58d4b17f3216581cc", start, end)
-                //.getRoute("TU_API_KEY", start, end)
-            if (call.isSuccessful) {
-                drawRoute(call.body())
-            } else {
-                Log.i("MAPS", "Fallo")
-                runOnUiThread {
-                    Toast.makeText(this@MapsActivity, "Error al crear la ruta, intente de nuevo", Toast.LENGTH_SHORT).show()
+        // Verificar si hay al menos dos puntos para crear rutas
+        if (selectedPoints.size >= 2) {
+            CoroutineScope(Dispatchers.IO).launch {
+                for (i in 0 until selectedPoints.size - 1) {
+                    val startPoint = "${selectedPoints[i].longitude},${selectedPoints[i].latitude}"
+                    val endPoint = "${selectedPoints[i + 1].longitude},${selectedPoints[i + 1].latitude}"
+
+                    val routePair = Pair(selectedPoints[i], selectedPoints[i + 1])
+                    if (routePair !in drawnRoutes) {
+                        val call = getRetrofit().create(ApiServiceMaps::class.java)
+                            .getRoute("5b3ce3597851110001cf62487e318d4a23d745d58d4b17f3216581cc", startPoint, endPoint)
+                        //.getRoute("TU_API_KEY", startPoint, endPoint)
+
+                        if (call.isSuccessful) {
+                            drawRoute(call.body())
+                            drawnRoutes.add(routePair)
+                        } else {
+                            Log.i("MAPS", "Fallo")
+                            runOnUiThread {
+                                Toast.makeText(this@MapsActivity, "Error al crear la ruta, intente de nuevo", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                 }
             }
+        } else {
+            Toast.makeText(this, "Agrega al menos dos puntos para calcular rutas", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -216,10 +226,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         routeResponse?.features?.first()?.geometry?.coordinates?.forEach {
             polyLineOptions.add(LatLng(it[1], it[0]))
         }
-        runOnUiThread {//VOLVER AL HILO PRINCIPAL
-            //Dibujar la ruta
+        runOnUiThread {
+            // Dibujar la nueva ruta
             polyLineOptions.color(Color.BLUE)
-             poly = map.addPolyline(polyLineOptions)
+            poly = map.addPolyline(polyLineOptions)
         }
     }
 
