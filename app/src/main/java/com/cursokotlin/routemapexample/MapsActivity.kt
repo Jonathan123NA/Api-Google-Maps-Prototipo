@@ -1,11 +1,17 @@
 package com.cursokotlin.routemapexample
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -22,6 +28,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var map: GoogleMap
     private lateinit var btnCalculate: Button
 
+    private lateinit var btnCenterLocation: Button
+
     private var start: String = ""
     private var end: String = ""
 
@@ -33,11 +41,18 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     //Alternar tipo de vista
     private var currentMapType: Int = GoogleMap.MAP_TYPE_NORMAL
 
+    //Ubicacion en tiempo real
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var userLocationCircle: Circle? = null
+    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
 
         btnCalculate = findViewById(R.id.btnCalculateRoute)
+        btnCenterLocation = findViewById(R.id.btnCenterLocation)
+
         btnCalculate.setOnClickListener {
             // Eliminar marcadores y ruta anterior
             map.clear() // Esto eliminará todos los marcadores y rutas dibujadas
@@ -98,6 +113,53 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             changeMapType()
         }
 
+        // Inicialización de la ubicación
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        // Manejo del botón para centrar la ubicación en tiempo real
+        btnCenterLocation.setOnClickListener {
+            if (::map.isInitialized) {
+                if (checkLocationPermission()) {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                        if (location != null) {
+                            val currentLocation = LatLng(location.latitude, location.longitude)
+                            // Configurar el nivel de zoom (ajusta el valor según tus preferencias)
+                            val zoomLevel = 15f
+
+                            // Animar la cámara para centrarse en la ubicación actual con el zoom
+                            val cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentLocation, zoomLevel)
+                            map.animateCamera(cameraUpdate)
+
+                            // Actualizar la posición del círculo alrededor de la ubicación del usuario
+                            userLocationCircle?.center = currentLocation
+                        } else {
+                            Toast.makeText(this, "No se pudo obtener la ubicación actual", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    requestLocationPermission()
+                }
+            }
+        }
+    }
+
+    private fun checkLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestLocationPermission() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            LOCATION_PERMISSION_REQUEST_CODE
+        )
+    }
+
+    companion object {
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 123
     }
 
     private fun changeMapType() {
@@ -122,6 +184,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Configura el tipo de mapa inicial
         map.mapType = currentMapType
+
+        // Dibujar el círculo alrededor de la ubicación actual del usuario
+        val circleOptions = CircleOptions()
+            .center(puntoDeCarga)
+            .radius(20.0) // Cambia este valor según tus preferencias (en metros)
+            .strokeColor(Color.parseColor("#2B6EFF"))
+            .fillColor(Color.parseColor("#66E3FEFF")) // Color con transparencia
+        userLocationCircle = map.addCircle(circleOptions)
     }
 
     private fun createRoute() {
