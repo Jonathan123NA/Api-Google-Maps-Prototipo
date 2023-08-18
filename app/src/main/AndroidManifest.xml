@@ -9,9 +9,9 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/icon"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/icon"
         android:supportsRtl="true"
         android:theme="@style/Theme.RouteMapExample">
 
@@ -21,7 +21,8 @@
 
         <activity
             android:name=".MapsActivity"
-            android:exported="true">
+            android:exported="true"
+            android:label="Ruta Pedidos Agiles">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

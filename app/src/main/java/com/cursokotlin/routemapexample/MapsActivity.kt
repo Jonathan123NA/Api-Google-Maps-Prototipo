@@ -57,6 +57,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         btnCalculate = findViewById(R.id.btnCalculateRoute)
         btnCenterLocation = findViewById(R.id.btnCenterLocation)
+        // Solicitar los permisos de ubicación en el inicio
+        requestLocationPermission()
 
         btnCalculate.setOnClickListener {
             // Eliminar marcadores y ruta anterior
@@ -137,6 +139,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
+
     }
 
     private fun checkLocationPermission(): Boolean {
@@ -181,7 +184,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Configura el tipo de mapa inicial
         map.mapType = currentMapType
 
-        // Dibujar el círculo alrededor de la ubicación actual del usuario
+        // Inicializar el círculo alrededor de la ubicación actual del usuario
         val circleOptions = CircleOptions()
             .center(puntoDeCarga)
             .radius(20.0) // Cambia este valor según tus preferencias (en metros)
